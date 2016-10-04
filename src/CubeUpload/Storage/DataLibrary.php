@@ -16,7 +16,7 @@ class DataLibrary
             $this->connectDb();
         }
         else
-            throw new Exception("Invalid storage dir: $storage_dir");
+            throw new \Exception("Invalid storage dir: $storage_dir");
     }
 
     private function connectDb()
