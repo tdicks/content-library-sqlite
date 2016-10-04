@@ -1,6 +1,7 @@
 <?php namespace CubeUpload\Storage;
 
 use \PDO;
+use \finfo;
 use CubeUpload\Storage\Exceptions\FileNotFoundException;
 
 class DataLibrary
@@ -24,7 +25,7 @@ class DataLibrary
         $this->pdo = new PDO("sqlite:{$this->storage_dir}/index.db");
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS lookup (id INTEGER PRIMARY KEY, filename TEXT UNIQUE, hash TEXT, created_at TEXT, retrieved_at TEXT)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS lookup (id INTEGER PRIMARY KEY, filename TEXT UNIQUE, hash TEXT, mimetype TEXT, created_at TEXT, retrieved_at TEXT)");
     }
 
     /**
@@ -61,10 +62,13 @@ class DataLibrary
             throw new FileNotFoundException("File {$filePath} doesn't exist");
 
         $hash = md5_file($filePath);
+        
+        $mimetype = (new finfo(FILEINFO_MIME))->file($filePath);
 
-        $statement = $this->pdo->prepare("INSERT OR IGNORE INTO lookup (filename, hash, created_at) VALUES (:filename, :hash, datetime())");
+        $statement = $this->pdo->prepare("INSERT OR IGNORE INTO lookup (filename, hash, mimetype, created_at) VALUES (:filename, :hash, :mimetype, datetime())");
         $statement->bindParam(":filename", $filename);
         $statement->bindParam(":hash", $hash);
+        $statement->bindParam(":mimetype", $mimetype);
 
         $statement->execute();
 
@@ -131,6 +135,25 @@ class DataLibrary
             return null;
         else
             return $result[0];
+    }
+
+    public function getMimeType( $filename )
+    {
+        $statement = $this->pdo->prepare("SELECT hash, mimetype FROM lookup WHERE filename = :filename");
+        $statement->bindParam(":filename", $filename);
+
+        $success = $statement->execute();
+
+        if($success)
+        {
+            $result = $statement->fetchAll();
+
+            if (count($result) == 1)
+            {
+                return $result[0]['mimetype'];
+            }
+            return false;
+        }
     }
 
     private function getPath($hash)

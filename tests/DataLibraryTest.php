@@ -10,7 +10,7 @@ class DataLibraryTest extends TestCase
     public static function setUpBeforeClass()
     {
         if (file_exists( 'content' ))
-            recursiveDelete('content'); 
+            self::recursiveDelete('content'); 
             
         mkdir( 'content' );
         
@@ -114,5 +114,12 @@ class DataLibraryTest extends TestCase
     public function testPutInvalidFile()
     {
         self::$library->put('filename.txt', 'path/to/invalid_file.txt');
+    }
+
+    public function testGetMimeInfo()
+    {
+        $info = self::$library->getMimeType('testfile.txt');
+
+        $this->assertContains("text/plain", $info);
     }
 }
