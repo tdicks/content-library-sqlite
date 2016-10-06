@@ -45,7 +45,7 @@ class DataLibraryTest extends TestCase
 
     public function testFileSaving()
     {
-        self::$library->put("testfile.txt", "./tests/fixtures/testfile.txt");
+        $this->assertTrue(self::$library->put("testfile.txt", "./tests/fixtures/testfile.txt"));
         $this->assertFileExists("./content/5/0/a/50a67ca95104ed586a1ba3e61f262f54.dat");
     }
 

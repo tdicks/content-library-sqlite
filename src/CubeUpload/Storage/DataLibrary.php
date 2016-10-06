@@ -72,7 +72,7 @@ class DataLibrary
 
         $statement->execute();
 
-        $this->saveFile($hash, $filePath);
+        return $this->saveFile($hash, $filePath);
     }
 
     public function delete($filename)
@@ -193,7 +193,7 @@ class DataLibrary
         if(!file_exists($hashPath))
             mkdir($hashPath, 0777, true);
 
-        copy($filePath, $path);
+        return copy($filePath, $path);
     }
 
     private function deleteContent($hash)
