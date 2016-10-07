@@ -96,10 +96,20 @@ class DataLibraryTest extends TestCase
         self::$library->put('testfile.txt', './tests/fixtures/testfile.txt');
         self::$library->put('otherfile.txt', './tests/fixtures/testfile.txt');
 
+        $mtime = filemtime('./content/5/0/a/50a67ca95104ed586a1ba3e61f262f54.dat');
+
         $hash = self::$library->info('otherfile.txt')['hash'];
         $refs = self::$library->references($hash);
 
         $this->assertEquals(2, count($refs));
+
+        sleep(1);
+
+        self::$library->put('thirdfile.txt', './tests/fixtures/testfile.txt');
+
+        // verify that adding another file reference to an existing file
+        // does not copy the file again.
+        $this->assertEquals($mtime, filemtime('./content/5/0/a/50a67ca95104ed586a1ba3e61f262f54.dat'));
     }
 
     public function testGetInvalidFile()

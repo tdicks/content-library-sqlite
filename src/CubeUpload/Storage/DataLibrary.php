@@ -72,7 +72,10 @@ class DataLibrary
 
         $statement->execute();
 
-        return $this->saveFile($hash, $filePath);
+        if (file_exists($this->getFilepath($hash)))
+            return true;
+        else
+            return $this->saveFile($hash, $filePath);
     }
 
     public function delete($filename)
