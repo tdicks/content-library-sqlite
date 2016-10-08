@@ -45,7 +45,10 @@ class DataLibrary
 
             if(count($result) == 1)
             {
-                $this->pdo->query("UPDATE lookup SET retrieved_at = datetime()")->execute();
+                $update_stmt = $this->pdo->prepare("UPDATE lookup SET retrieved_at = datetime() WHERE hash = :hash");
+                $update_stmt->bindParam(":hash", $result[0][0]);
+                $update_stmt->execute();
+                
                 return $this->loadContent($result[0][0]);
             }
             else
