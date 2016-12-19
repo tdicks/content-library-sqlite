@@ -67,7 +67,7 @@ class DataLibraryTest extends TestCase
     {
         $info = self::$library->info('testfile.txt');
 
-        $this->assertCount(6, $info);
+        $this->assertCount(4, $info);
     }
 
     public function testFileRetrievedUpdated()
