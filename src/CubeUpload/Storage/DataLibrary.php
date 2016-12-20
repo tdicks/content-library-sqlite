@@ -1,6 +1,7 @@
 <?php namespace CubeUpload\Storage;
 
 use \PDO;
+use \finfo;
 use CubeUpload\Storage\Exceptions\FileNotFoundException;
 
 class DataLibrary
@@ -16,7 +17,7 @@ class DataLibrary
             $this->connectDb();
         }
         else
-            throw new Exception("Invalid storage dir: $storage_dir");
+            throw new \Exception("Invalid storage dir: $storage_dir");
     }
 
     private function connectDb()
@@ -25,7 +26,7 @@ class DataLibrary
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS lookup (id INTEGER PRIMARY KEY, filename TEXT UNIQUE, hash TEXT, filesize INTEGER, created_at TEXT)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS lookup (id INTEGER PRIMARY KEY, filename TEXT UNIQUE, hash TEXT, filesize INTEGER, mimetype TEXT, created_at TEXT)");
     }
 
     /**
@@ -44,7 +45,8 @@ class DataLibrary
             $result = $statement->fetchAll();
 
             if(count($result) == 1)
-            {
+            {         
+                $this->updateAccessTime($result[0]['hash']);     
                 return $this->loadContent($result[0]['hash']);
             }
             else
@@ -61,16 +63,21 @@ class DataLibrary
             throw new FileNotFoundException("File {$filePath} doesn't exist");
 
         $hash = md5_file($filePath);
+        $mimetype = (new finfo(FILEINFO_MIME))->file($filePath);
         $filesize = filesize($filePath);
 
-        $statement = $this->pdo->prepare("INSERT OR IGNORE INTO lookup (filename, hash, filesize, created_at) VALUES (:filename, :hash, :filesize, datetime())");
+        $statement = $this->pdo->prepare("INSERT OR IGNORE INTO lookup (filename, hash, filesize, mimetype, created_at) VALUES (:filename, :hash, :filesize, :mimetype, datetime())");
         $statement->bindParam(":filename", $filename);
         $statement->bindParam(":hash", $hash);
         $statement->bindParam(":filesize", $filesize);
+        $statement->bindParam(":mimetype", $mimetype);
 
         $statement->execute();
 
-        $this->saveFile($hash, $filePath);
+        if (file_exists($this->getFilepath($hash)))
+            return true;
+        else
+            return $this->saveFile($hash, $filePath);
     }
 
     public function delete($filename)
@@ -123,7 +130,7 @@ class DataLibrary
 
     public function info( $filename )
     {
-        $statement = $this->pdo->prepare("SELECT hash, filesize, created_at FROM lookup WHERE filename = :filename");
+        $statement = $this->pdo->prepare("SELECT hash, filesize, mimetype, created_at FROM lookup WHERE filename = :filename");
         $statement->bindParam(":filename", $filename);
         $statement->execute();
 
@@ -147,6 +154,25 @@ class DataLibrary
     private function getAccessTime($hash)
     {
         return fileatime($this->getPath($hash) . '/' . $hash . '.dat');
+    }
+
+    public function getMimeType( $filename )
+    {
+        $statement = $this->pdo->prepare("SELECT hash, mimetype FROM lookup WHERE filename = :filename");
+        $statement->bindParam(":filename", $filename);
+
+        $success = $statement->execute();
+
+        if($success)
+        {
+            $result = $statement->fetchAll();
+
+            if (count($result) == 1)
+            {
+                return $result[0]['mimetype'];
+            }
+            return false;
+        }
     }
 
     private function getPath($hash)
@@ -186,7 +212,7 @@ class DataLibrary
         if(!file_exists($hashPath))
             mkdir($hashPath, 0777, true);
 
-        copy($filePath, $path);
+        return copy($filePath, $path);
     }
 
     private function deleteContent($hash)

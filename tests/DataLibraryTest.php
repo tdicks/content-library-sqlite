@@ -10,7 +10,7 @@ class DataLibraryTest extends TestCase
     public static function setUpBeforeClass()
     {
         if (file_exists( 'content' ))
-            recursiveDelete('content'); 
+            self::recursiveDelete('content'); 
             
         mkdir( 'content' );
         
@@ -45,7 +45,7 @@ class DataLibraryTest extends TestCase
 
     public function testFileSaving()
     {
-        self::$library->put("testfile.txt", "./tests/fixtures/testfile.txt");
+        $this->assertTrue(self::$library->put("testfile.txt", "./tests/fixtures/testfile.txt"));
         $this->assertFileExists("./content/5/0/a/50a67ca95104ed586a1ba3e61f262f54.dat");
     }
 
@@ -67,7 +67,7 @@ class DataLibraryTest extends TestCase
     {
         $info = self::$library->info('testfile.txt');
 
-        $this->assertCount(4, $info);
+        $this->assertCount(5, $info);
     }
 
     public function testFileRetrievedUpdated()
@@ -96,10 +96,20 @@ class DataLibraryTest extends TestCase
         self::$library->put('testfile.txt', './tests/fixtures/testfile.txt');
         self::$library->put('otherfile.txt', './tests/fixtures/testfile.txt');
 
+        $mtime = filemtime('./content/5/0/a/50a67ca95104ed586a1ba3e61f262f54.dat');
+
         $hash = self::$library->info('otherfile.txt')['hash'];
         $refs = self::$library->references($hash);
 
         $this->assertEquals(2, count($refs));
+
+        sleep(1);
+
+        self::$library->put('thirdfile.txt', './tests/fixtures/testfile.txt');
+
+        // verify that adding another file reference to an existing file
+        // does not copy the file again.
+        $this->assertEquals($mtime, filemtime('./content/5/0/a/50a67ca95104ed586a1ba3e61f262f54.dat'));
     }
 
     public function testGetInvalidFile()
@@ -114,5 +124,12 @@ class DataLibraryTest extends TestCase
     public function testPutInvalidFile()
     {
         self::$library->put('filename.txt', 'path/to/invalid_file.txt');
+    }
+
+    public function testGetMimeInfo()
+    {
+        $info = self::$library->getMimeType('testfile.txt');
+
+        $this->assertContains("text/plain", $info);
     }
 }
