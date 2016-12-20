@@ -45,7 +45,8 @@ class DataLibrary
             $result = $statement->fetchAll();
 
             if(count($result) == 1)
-            {              
+            {         
+                $this->updateAccessTime($result[0]['hash']);     
                 return $this->loadContent($result[0]['hash']);
             }
             else
