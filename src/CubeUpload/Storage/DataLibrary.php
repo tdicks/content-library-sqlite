@@ -24,8 +24,9 @@ class DataLibrary
     {
         $this->pdo = new PDO("sqlite:{$this->storage_dir}/index.db");
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS lookup (id INTEGER PRIMARY KEY, filename TEXT UNIQUE, hash TEXT, mimetype TEXT, created_at TEXT, retrieved_at TEXT)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS lookup (id INTEGER PRIMARY KEY, filename TEXT UNIQUE, hash TEXT, filesize INTEGER, mimetype TEXT, created_at TEXT)");
     }
 
     /**
@@ -44,12 +45,8 @@ class DataLibrary
             $result = $statement->fetchAll();
 
             if(count($result) == 1)
-            {
-                $update_stmt = $this->pdo->prepare("UPDATE lookup SET retrieved_at = datetime() WHERE hash = :hash");
-                $update_stmt->bindParam(":hash", $result[0][0]);
-                $update_stmt->execute();
-                
-                return $this->loadContent($result[0][0]);
+            {              
+                return $this->loadContent($result[0]['hash']);
             }
             else
                 return false;
@@ -65,12 +62,13 @@ class DataLibrary
             throw new FileNotFoundException("File {$filePath} doesn't exist");
 
         $hash = md5_file($filePath);
-        
         $mimetype = (new finfo(FILEINFO_MIME))->file($filePath);
+        $filesize = filesize($filePath);
 
-        $statement = $this->pdo->prepare("INSERT OR IGNORE INTO lookup (filename, hash, mimetype, created_at) VALUES (:filename, :hash, :mimetype, datetime())");
+        $statement = $this->pdo->prepare("INSERT OR IGNORE INTO lookup (filename, hash, filesize, mimetype, created_at) VALUES (:filename, :hash, :filesize, :mimetype, datetime())");
         $statement->bindParam(":filename", $filename);
         $statement->bindParam(":hash", $hash);
+        $statement->bindParam(":filesize", $filesize);
         $statement->bindParam(":mimetype", $mimetype);
 
         $statement->execute();
@@ -131,7 +129,7 @@ class DataLibrary
 
     public function info( $filename )
     {
-        $statement = $this->pdo->prepare("SELECT hash, created_at, retrieved_at FROM lookup WHERE filename = :filename");
+        $statement = $this->pdo->prepare("SELECT hash, filesize, mimetype, created_at FROM lookup WHERE filename = :filename");
         $statement->bindParam(":filename", $filename);
         $statement->execute();
 
@@ -140,7 +138,21 @@ class DataLibrary
         if( count($result) == 0)
             return null;
         else
+        {
+            $result[0]["retrieved_at"] = $this->getAccessTime($result[0]['hash']);
             return $result[0];
+        }
+            
+    }
+
+    private function updateAccessTime($hash)
+    {
+        @touch($this->getPath($hash) . '/' . $hash . '.dat');
+    }
+
+    private function getAccessTime($hash)
+    {
+        return fileatime($this->getPath($hash) . '/' . $hash . '.dat');
     }
 
     public function getMimeType( $filename )
